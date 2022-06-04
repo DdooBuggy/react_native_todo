@@ -10,6 +10,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Pressable,
 } from "react-native";
 import { Fontisto } from "@expo/vector-icons";
 import { theme } from "./colors";
@@ -22,6 +23,8 @@ export default function App() {
   const [text, setText] = useState("");
   const [toDos, setToDos] = useState({});
   const [loading, setLoading] = useState(true);
+  const [editMode, setEditMode] = useState(false);
+  const [editKey, setEditKey] = useState();
   useEffect(async () => {
     loadToDos();
     setLoading(false);
@@ -62,11 +65,12 @@ export default function App() {
     }
   };
   const addToDo = async () => {
-    if (text === "") {
+    if (text.trim() === "") {
+      setEditMode(false);
       return;
     }
     const newToDos = Object.assign({}, toDos, {
-      [Date.now()]: { text, working, checked: false },
+      [Date.now()]: { text: text.trim(), working, checked: false },
     });
     setToDos(newToDos);
     await saveToDos(newToDos);
@@ -93,6 +97,34 @@ export default function App() {
     setToDos(newToDos);
     saveToDos(newToDos);
   };
+  const editToDo = async () => {
+    if (!editMode) {
+      return;
+    }
+    if (text.trim() === "") {
+      setEditMode(false);
+      return;
+    }
+    const newToDos = { ...toDos };
+    newToDos[editKey] = { text: text.trim(), working, checked: false };
+    setToDos(newToDos);
+    await saveToDos(newToDos);
+    setText("");
+    setEditMode(false);
+    return;
+  };
+  const editCancel = () => {
+    setEditMode(false);
+    setText("");
+  };
+  const onEditText = (key) => {
+    if (editMode) {
+      return;
+    }
+    setEditKey(key);
+    setText(toDos[key].text);
+    setEditMode(true);
+  };
   return (
     <View style={styles.container}>
       <StatusBar style="auto" />
@@ -105,95 +137,169 @@ export default function App() {
         />
       ) : (
         <>
-          <View style={styles.header}>
-            <TouchableOpacity onPress={work}>
-              <Text
-                style={{
-                  fontSize: 38,
-                  fontWeight: "600",
-                  color: working ? "white" : theme.grey,
-                }}
-              >
-                Work
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={travel}>
-              <Text
-                style={{
-                  fontSize: 38,
-                  fontWeight: "600",
-                  color: !working ? "white" : theme.grey,
-                }}
-              >
-                Travel
-              </Text>
-            </TouchableOpacity>
+          <View style={styles.mainBox}>
+            <View style={styles.header}>
+              <TouchableOpacity onPress={work}>
+                <Text
+                  style={{
+                    fontSize: 38,
+                    fontWeight: "600",
+                    color: working ? "white" : theme.grey,
+                  }}
+                >
+                  Work
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={travel}>
+                <Text
+                  style={{
+                    fontSize: 38,
+                    fontWeight: "600",
+                    color: !working ? "white" : theme.grey,
+                  }}
+                >
+                  Travel
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              onSubmitEditing={addToDo}
+              onChangeText={onChangeText}
+              returnKeyType="done"
+              value={text}
+              placeholder={working ? "Add a To Do" : "Where do you want to go?"}
+              placeholderTextColor={theme.lightGrey}
+              style={styles.input}
+            />
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {Object.keys(toDos).map((key) =>
+                toDos[key].working === working ? (
+                  <View style={styles.toDo} key={key}>
+                    <TouchableOpacity
+                      style={styles.toDoIcon}
+                      onPress={() => checkToDo(key)}
+                    >
+                      {toDos[key].checked ? (
+                        <Fontisto
+                          name="checkbox-active"
+                          size={18}
+                          color={theme.lightGrey}
+                        />
+                      ) : (
+                        <Fontisto
+                          name="checkbox-passive"
+                          size={18}
+                          color={theme.lightGrey}
+                        />
+                      )}
+                    </TouchableOpacity>
+
+                    <Pressable
+                      onPress={() => onEditText(key)}
+                      style={{ width: "80%" }}
+                    >
+                      <Text
+                        style={{
+                          color: "white",
+                          fontSize: 16,
+                          fontWeight: "600",
+                          width: "100%",
+                          opacity: toDos[key].checked ? 0.5 : 1,
+                          textDecorationLine: toDos[key].checked
+                            ? "line-through"
+                            : "none",
+                        }}
+                      >
+                        {toDos[key].text}
+                      </Text>
+                    </Pressable>
+
+                    <TouchableOpacity
+                      style={styles.toDoIcon}
+                      onPress={() => deleteToDo(key)}
+                    >
+                      <Fontisto name="trash" size={18} color={theme.grey} />
+                    </TouchableOpacity>
+                  </View>
+                ) : null
+              )}
+            </ScrollView>
           </View>
-          <TextInput
-            onSubmitEditing={addToDo}
-            onChangeText={onChangeText}
-            returnKeyType="done"
-            value={text}
-            placeholder={working ? "Add a To Do" : "Where do you want to go?"}
-            placeholderTextColor={theme.lightGrey}
-            style={styles.input}
-          />
-          <ScrollView showsVerticalScrollIndicator={false}>
-            {Object.keys(toDos).map((key) =>
-              toDos[key].working === working ? (
-                <View style={styles.toDo} key={key}>
-                  <TouchableOpacity
-                    style={{
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: "10%",
-                      height: 40,
-                    }}
-                    onPress={() => checkToDo(key)}
-                  >
-                    {toDos[key].checked ? (
-                      <Fontisto
-                        name="checkbox-active"
-                        size={18}
-                        color={theme.lightGrey}
-                      />
-                    ) : (
-                      <Fontisto
-                        name="checkbox-passive"
-                        size={18}
-                        color={theme.lightGrey}
-                      />
-                    )}
-                  </TouchableOpacity>
+          {editMode ? (
+            <View
+              style={{
+                position: "fixed",
+                backgroundColor: "black",
+                width: "100%",
+                height: "100%",
+                paddingHorizontal: 20,
+                paddingTop: 100,
+              }}
+            >
+              <Text
+                style={{
+                  color: "white",
+                  fontSize: 38,
+                  fontWeight: "600",
+                  textAlign: "center",
+                }}
+              >
+                Edit
+              </Text>
+              <TextInput
+                onSubmitEditing={editToDo}
+                onChangeText={onChangeText}
+                returnKeyType="done"
+                value={text}
+                placeholder="Edit list"
+                placeholderTextColor={theme.lightGrey}
+                style={styles.input}
+                autoFocus
+              />
+              <View
+                style={{
+                  width: "100%",
+                  justifyContent: "space-evenly",
+                  flexDirection: "row",
+                }}
+              >
+                <Pressable
+                  onPress={editCancel}
+                  style={{
+                    backgroundColor: theme.btnBlueBg,
+                    width: 70,
+                    height: 30,
+                    justifyContent: "center",
+                    alignItems: "center",
+                    borderRadius: 10,
+                  }}
+                >
                   <Text
-                    style={{
-                      color: "white",
-                      opacity: toDos[key].checked ? 0.5 : 1,
-                      fontSize: 16,
-                      fontWeight: "600",
-                      width: "80%",
-                      textDecorationLine: toDos[key].checked
-                        ? "line-through"
-                        : "none",
-                    }}
+                    style={{ color: "black", fontSize: 17, fontWeight: "500" }}
                   >
-                    {toDos[key].text}
+                    Cancel
                   </Text>
-                  <TouchableOpacity
-                    style={{
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: "10%",
-                      height: 40,
-                    }}
-                    onPress={() => deleteToDo(key)}
+                </Pressable>
+                <Pressable
+                  onPress={editToDo}
+                  style={{
+                    backgroundColor: theme.btnPinkBg,
+                    width: 70,
+                    height: 30,
+                    justifyContent: "center",
+                    alignItems: "center",
+                    borderRadius: 10,
+                  }}
+                >
+                  <Text
+                    style={{ color: "black", fontSize: 17, fontWeight: "500" }}
                   >
-                    <Fontisto name="trash" size={18} color={theme.grey} />
-                  </TouchableOpacity>
-                </View>
-              ) : null
-            )}
-          </ScrollView>
+                    Save
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
         </>
       )}
     </View>
@@ -204,6 +310,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.bg,
+  },
+  mainBox: {
+    flex: 1,
     paddingHorizontal: 20,
     paddingTop: 100,
   },
@@ -219,6 +328,12 @@ const styles = StyleSheet.create({
     marginVertical: 20,
     fontSize: 18,
   },
+  editInput: {
+    backgroundColor: "white",
+    borderRadius: 10,
+    fontSize: 18,
+    width: "100%",
+  },
   toDo: {
     backgroundColor: theme.toDoBg,
     marginBottom: 10,
@@ -229,10 +344,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  toDoText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "600",
-    width: "80%",
+  toDoIcon: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: "10%",
+    height: 40,
   },
 });
